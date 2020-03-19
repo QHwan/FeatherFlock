@@ -1,8 +1,10 @@
 import numpy as np
 
 class Bird:
-	def __init__(self, initial_position=None,
-				 initial_velcoty=None):
+	def __init__(self, name,
+				 initial_position=None,
+				 initial_velocity=None):
+		self.name = name
 		self.position = None
 		if initial_position is not None:
 			self.position = initial_position
