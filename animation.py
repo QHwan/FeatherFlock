@@ -8,10 +8,12 @@ def Simulation_Animation(posx,posy,velo,Vectors):
     fig, ax = plt.subplots()
     dots, = ax.plot([], [], 'ro')
     time = 0
+    print(np.shape(velo))
     for j in range(0,len(posx[:,0])):
         ax.arrow(posx[j,0],posy[j,0],cos(velo[j,0])/5,sin(velo[j,0])/5)
     ax.set_xlim([0,Vectors.L])
     ax.set_ylim([0,Vectors.L])
+
 
     def init():  # only required for blitting to give a clean slate.
         line.set_xdata(posx[:,0])
@@ -27,6 +29,7 @@ def Simulation_Animation(posx,posy,velo,Vectors):
         plt.title(r'Time={0}'.format(i))
         return ax
 
-    anim = Anim.FuncAnimation(fig,animate,frames = linspace(0,Vectors.time-1,Vectors.time,dtype=int),interval=250,blit=False,repeat=True)
+    anim = Anim.FuncAnimation(fig,animate,frames = linspace(0,Vectors.frame-1,Vectors.frame,dtype=int),interval=250,blit=False,repeat=True)
+    plt.show()
     
     return(anim)

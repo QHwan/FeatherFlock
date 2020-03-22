@@ -1,163 +1,110 @@
-# coding: utf-8
-
 from math import acos, asin
 import numpy as np
 from numpy.random import rand, uniform
+from tqdm import tqdm
 
-class Background_Field(object):
-    
+class Core(object):
     # class builder initiation 
-    def __init__(self,L=5,N=300,eta=.02,r=1,dt=1,time=50,*args,**kwargs):
+    def __init__(self, L=25, N=300, eta=.1, r=1, dt=1, frame=50, *args, **kwargs):
         self.L = L #length of LxL domain
         self.N = N #number of particles
         self.eta = eta #noise for direction
         self.r = r #interaction radius
         self.dt = dt #timestep
-        self.time = time #total iterations
+        self.frame = frame #total iterations
         
     # Set up initial condition
-    def SetIC(self):
-        posx = np.zeros((self.N,self.time))
-        posy = np.zeros((self.N,self.time))
-        velo = np.zeros((self.N,self.time))
+    def set_initial_condition(self):
+        pos_mat3 = np.zeros((self.frame, self.N, 2))
+        vel_mat = np.zeros((self.frame, self.N))
 
-        posx[:,0] = self.L*rand(self.N) #initial positions x-coordinates
-        posy[:,0] = self.L*rand(self.N) #initial poisitions y-coordinates
-        velo[:,0] = 2*np.pi*rand(self.N) #initial velocities
-        return(posx,posy,velo)
+        pos_mat3[0,:,0] = self.L*rand(self.N) #initial positions x-coordinates
+        pos_mat3[0,:,1] = self.L*rand(self.N) #initial poisitions y-coordinates
+        vel_mat[0] = 2*np.pi*rand(self.N) #initial velocities
+        return(pos_mat3, vel_mat)
     
-    def ThetaNoise(self):
+    def theta_noise(self):
         #This is a uniform disribution of noise
         return(uniform(-self.eta/2,self.eta/2,self.N))
     
-class Particles(Background_Field):
-    
-    def __init__(self,v=0.3, ep=1, k = 0,*args,**kwargs):
+
+class Birds(Core):
+    def __init__(self,v=0.03, ep=1, *args,**kwargs):
 
         self.v = v #constant speed
         self.ep = ep #the delay parameter (ep = 1 implies the Vicsek model, ep = 0 is ballistic movement)
         
-        #number of nearest neighbors or case number. If k = 0, this is the metric model. For k > 0, we use the top. model.
-        if (type(k) == int):
-            self.k = int(k)
-        else:
-            self.k = int(k)
-            print('You did not provide an integer. To correct this, we have made your value of k = {0}'.format(self.k))
         self.args = args
         self.kwargs = kwargs
         
-        super(Particles,self).__init__(*args,**kwargs)
+        super(Birds,self).__init__(*args,**kwargs)
     
-    def Simulation(self):
+
+    def run(self):
         #This function simulates the scheme selected by the user for the flocking mechanism
-        #k = 0 represents the metric case where k > 0 represents the topological case with k nearest neighbors
         
         #Inputs -- None
         #Outputs -- Positions and velocities of all timesteps of the simulation
-        posx, posy, velo = self.SetIC()
-        if (self.k == 0):
-            for d in range(1,self.time):
-                posx[:,d],posy[:,d],velo[:,d] = self.Update_Metric(posx[:,d-1],posy[:,d-1],velo[:,d-1])
-        elif (self.k > 0):
-            for d in range(1,self.time):
-                posx[:,d],posy[:,d],velo[:,d] = self.Update_Top(posx[:,d-1],posy[:,d-1],velo[:,d-1],self.k)
-        elif (self.k < 0):
-            print('k must be positive. Please reinitialize with a proper k')
-        return(posx,posy,velo)
+        pos_mat3, vel_mat = self.set_initial_condition()
+        for i in tqdm(range(1, self.frame)):
+            pos_mat3[i], vel_mat[i] = self.update_metric(pos_mat3[i-1], vel_mat[i-1])
+
+        return(pos_mat3, vel_mat)
     
-    def Update_Metric(self,posx,posy,velo):
+
+    def update_metric(self,pos_mat, vel_vec):
         #This method allows us to update the flocking model with the Metric model
         #Each new velocity is constructed by averaging over all of the velocities within
         #the radius selected, self.r.
         #Inputs -- x-coordinates, y-coordinates, trajectories for time = t
         #Outputs -- x-coordinates, y-coordinates, trajectories for time = t + (delta t)
-        avgs = 0*velo
-        avgc = 0*velo
+        avgs = 0*vel_vec
+        avgc = 0*vel_vec
         
         for j in range(0,self.N):
             #find distances for all particles
-            Dist = self.Calc_Dist(posx,posy,self.L,j)
+            dist_vec = self.calc_dist(pos_mat, self.L, j)
             
             #find indicies that are within the radius
-            Vals = [i for i in range(len(Dist)) if Dist[i] <= self.r]
+            ngbs_idx_vec = [i for i in range(len(dist_vec)) if dist_vec[i] <= self.r]
             
             #find average velocity of those inside the radius
             sint = 0 
             cost = 0
-            for k in Vals:
-                sint = sint + np.sin(velo[k])
-                cost = cost + np.cos(velo[k])
-            if (len(Vals)==0):
+            for k in ngbs_idx_vec:
+                sint = sint + np.sin(vel_vec[k])
+                cost = cost + np.cos(vel_vec[k])
+            if (len(ngbs_idx_vec)==0):
                 #catch yourself if there are no objects within the desired radius
                 avgs[j] = 0
                 avgc[j] = 0
             else:
-                avgs[j] = sint/len(Vals)
-                avgc[j] = cost/len(Vals)
+                avgs[j] = sint/len(ngbs_idx_vec)
+                avgc[j] = cost/len(ngbs_idx_vec)
                 
         #construct the noise
-        noise = self.ThetaNoise()
+        noise = self.theta_noise()
         
         #update velocities and positions
-        cosi = (self.ep)*avgc+(1-self.ep)*np.cos(velo)
-        sini = (self.ep)*avgs+(1-self.ep)*np.sin(velo)
+        cosi = (self.ep)*avgc+(1-self.ep)*np.cos(vel_vec)
+        sini = (self.ep)*avgs+(1-self.ep)*np.sin(vel_vec)
         newvelo = np.arctan2(sini,cosi) 
         velon = np.mod(newvelo + noise,2*np.pi)
-        posx = posx + self.dt*self.v*np.cos(velon) 
-        posy = posy + self.dt*self.v*np.sin(velon)
+        pos_mat[:,0] = pos_mat[:,0] + self.dt*self.v*np.cos(velon) 
+        pos_mat[:,1] = pos_mat[:,1] + self.dt*self.v*np.sin(velon)
         
         #Make sure that the positions are not outside the boundary.
         #If so, correct for periodicity
-        posx,posy = self.CheckBoundary(posx,posy)
+        pos_mat = self.check_boundary(pos_mat)
         
         #Outputs returned
-        return(posx,posy,velon)
+        return(pos_mat, velon)
+       
     
-    def Update_Top(self,posx,posy,velo,kn):
-        #This is the topological mdoel for flocking. This finds the k-nearest neighbors 
-        #k here is the number of nearest neighbors selected to average over
-        avgs = 0*velo
-        avgc = 0*velo
-        L = self.L
-        for j in range(0,self.N):
-            
-            #calculate distances
-            Dist = self.Calc_Dist(posx,posy,self.L,j)
-            
-            #Find k-nearest neighbors
-            Vals = Dist.argsort()[:kn] #indices of the k-nearest neighbors
-
-            #find average velocity
-            sint = 0 
-            cost = 0
-            for k in Vals:
-                sint = sint + np.sin(velo[k])
-                cost = cost + np.cos(velo[k])
-            avgs[j] = sint/len(Vals)
-            avgc[j] = cost/len(Vals)
-
-        noise = self.ThetaNoise()
-        
-        #update velocities and positions
-    
-        cosi = (self.ep)*avgc+(1-self.ep)*np.cos(velo)
-        sini = (self.ep)*avgs+(1-self.ep)*np.sin(velo)
-        newvelo = np.arctan2(sini,cosi)
-        velon = np.mod(newvelo + noise,2*np.pi)
-        posx = posx + self.dt*self.v*np.cos(velon) 
-        posy = posy + self.dt*self.v*np.sin(velon)
-        
-        #make sure individuals are not outside the boundary, and if they are
-        #utilize he periodicity to get them in the right place.
-        posx,posy = self.CheckBoundary(posx,posy)
-        
-        #output information for next timesteps
-        return(posx,posy,velon)
-    
-    
-    def Calc_Dist(self,posx,posy,L,j):
+    def calc_dist(self, pos_mat, L, j):
         #find distance of every particle from particle j using periodic boundary conditions
-        
+        posx = pos_mat[:,0]
+        posy = pos_mat[:,1]
         Dist0 = np.sqrt((posx[j] - posx)**2 + (posy[j] - posy)**2) #regular  
         Dist1 = np.sqrt((posx[j]  - L - posx)**2 + (posy[j] - posy + L)**2) #topleft
         Dist2 = np.sqrt((posx[j]  - posx)**2 + (posy[j] - posy + L)**2) #topcenter
@@ -172,7 +119,9 @@ class Particles(Background_Field):
         
         return(np.asarray(TD).min(0)) #minimum values for all possible distances
     
-    def CheckBoundary(self,posx,posy):
+    def check_boundary(self,pos_mat):
+        posx = pos_mat[:,0]
+        posy = pos_mat[:,1]
         xcordn = [i for i in range(self.N) if posx[i] < 0]
         xcordp = [i for i in range(self.N) if posx[i] > self.L]
         ycordn = [i for i in range(self.N) if posy[i] < 0]
@@ -190,5 +139,5 @@ class Particles(Background_Field):
         for j in ycordp:
             posy[j] = posy[j] - self.L
            
-        return(posx,posy)
+        return(pos_mat)
                                       
