@@ -5,15 +5,15 @@ import matplotlib.animation as Anim
 import profile
 
 def Simulation_Animation(posx,posy,velo,Vectors):
+    color_list = ['red', 'blue']
     fig, ax = plt.subplots()
     dots, = ax.plot([], [], 'ro')
     time = 0
-    print(np.shape(velo))
     for j in range(0,len(posx[:,0])):
-        ax.arrow(posx[j,0],posy[j,0],cos(velo[j,0])/5,sin(velo[j,0])/5)
+        ax.arrow(posx[j,0],posy[j,0],cos(velo[j,0])/5,sin(velo[j,0])/5,
+                 color=color_list[Vectors.status_vec[j]])
     ax.set_xlim([0,Vectors.L])
     ax.set_ylim([0,Vectors.L])
-
 
     def init():  # only required for blitting to give a clean slate.
         line.set_xdata(posx[:,0])
@@ -25,7 +25,8 @@ def Simulation_Animation(posx,posy,velo,Vectors):
         ax.set_xlim([0,Vectors.L])
         ax.set_ylim([0,Vectors.L])
         for j in range(0,len(posx[:,0])):
-            ax.arrow(posx[j,i],posy[j,i],cos(velo[j,i])/5,sin(velo[j,i])/5)
+            ax.arrow(posx[j,i],posy[j,i],cos(velo[j,i])/5,sin(velo[j,i])/5,
+                     color=color_list[Vectors.status_vec[j]])
         plt.title(r'Time={0}'.format(i))
         return ax
 

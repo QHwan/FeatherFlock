@@ -5,11 +5,11 @@ import core
 import matplotlib.pyplot as plt
 
 eta_vec = np.linspace(0, 5.0, 11)
-eta_vec = [4.0]
+eta_vec = [0.1]
 o_vec = np.zeros_like(eta_vec)
 
 for i, eta in enumerate(eta_vec):
-        Bird = core.Birds(L=3.1, N=40, eta=eta, r=1, dt=1, v=0.1, frame=5000, ep=1)
+        Bird = core.Birds(L=5, N=300, eta=eta, r=1, dt=1, v=0.1, frame=100, ep=1, mode='competition')
         pos_mat3, vel_mat, norm_vel_vec = Bird.run()
 
         o_vec[i] = np.mean(norm_vel_vec[-20:])
